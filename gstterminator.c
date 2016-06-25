@@ -60,6 +60,8 @@ static void gst_terminator_before_transform (GstBaseTransform * trans, GstBuffer
 static GstFlowReturn gst_terminator_transform (GstBaseTransform * trans, GstBuffer * inbuf, GstBuffer * outbuf);
 static GstFlowReturn gst_terminator_transform_ip (GstBaseTransform * trans, GstBuffer * buf);
 
+static gboolean gst_terminator_timeout(GstClock *clock, GstClockTime time, GstClockID id, gpointer user_data);
+
 enum
 {
   PROP_0,
@@ -128,8 +130,8 @@ gst_terminator_class_init (GstTerminatorClass * klass)
 //   base_transform_class->propose_allocation = GST_DEBUG_FUNCPTR (gst_terminator_propose_allocation);
 //   base_transform_class->transform_size = GST_DEBUG_FUNCPTR (gst_terminator_transform_size);
 //   base_transform_class->get_unit_size = GST_DEBUG_FUNCPTR (gst_terminator_get_unit_size);
-//   base_transform_class->start = GST_DEBUG_FUNCPTR (gst_terminator_start);
-//   base_transform_class->stop = GST_DEBUG_FUNCPTR (gst_terminator_stop);
+  base_transform_class->start = GST_DEBUG_FUNCPTR (gst_terminator_start);
+  base_transform_class->stop = GST_DEBUG_FUNCPTR (gst_terminator_stop);
 //   base_transform_class->sink_event = GST_DEBUG_FUNCPTR (gst_terminator_sink_event);
 //   base_transform_class->src_event = GST_DEBUG_FUNCPTR (gst_terminator_src_event);
 //   base_transform_class->prepare_output_buffer = GST_DEBUG_FUNCPTR (gst_terminator_prepare_output_buffer);
@@ -342,15 +344,41 @@ gst_terminator_get_unit_size (GstBaseTransform * trans, GstCaps * caps,
   return TRUE;
 }
 
+static gboolean
+gst_terminator_timeout(GstClock *clock, GstClockTime time, GstClockID id, gpointer user_data)
+{
+  GST_DEBUG("TIMEOUT: clockid=%p time=%llu", id, time);
+  gst_element_send_event(GST_ELEMENT(user_data), gst_event_new_eos());
+  return TRUE;
+}
+
 /* states */
 static gboolean
 gst_terminator_start (GstBaseTransform * trans)
 {
+  gboolean ret = TRUE;
   GstTerminator *terminator = GST_TERMINATOR (trans);
+  int clock_ret;
 
   GST_DEBUG_OBJECT (terminator, "start");
 
-  return TRUE;
+  if (terminator->timeout != 0)
+  {
+	 GstClock *clock = gst_system_clock_obtain();
+	 GstClockTime endtime = gst_clock_get_time(clock) + (terminator->timeout * GST_SECOND);
+	 GstClockID clkid = gst_clock_new_single_shot_id(clock, endtime);
+
+     GST_DEBUG("clockid=%p endtime=%llu", clkid, endtime);
+
+	 clock_ret = gst_clock_id_wait_async(clkid, gst_terminator_timeout, trans, NULL);
+     if (GST_CLOCK_OK != clock_ret)
+     {
+       GST_DEBUG("timeout failed %d", clock_ret);
+       ret = FALSE;
+     }
+  }
+
+  return ret;
 }
 
 static gboolean
