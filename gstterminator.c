@@ -28,6 +28,8 @@
 GST_DEBUG_CATEGORY_STATIC (gst_terminator_debug_category);
 #define GST_CAT_DEFAULT gst_terminator_debug_category
 
+#define TIMEOUT_DEFAULT_VALUE 0
+
 /* prototypes */
 
 
@@ -60,7 +62,8 @@ static GstFlowReturn gst_terminator_transform_ip (GstBaseTransform * trans, GstB
 
 enum
 {
-  PROP_0
+  PROP_0,
+  PROP_TIMEOUT
 };
 
 /* pad templates */
@@ -107,6 +110,11 @@ gst_terminator_class_init (GstTerminatorClass * klass)
   gobject_class->set_property = gst_terminator_set_property;
   gobject_class->get_property = gst_terminator_get_property;
 
+  g_object_class_install_property (gobject_class, PROP_TIMEOUT,
+      g_param_spec_uint("timeout", "timeout", "application timeout in seconds",
+      0, G_MAXUINT32, TIMEOUT_DEFAULT_VALUE,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
 
 //   gobject_class->dispose = gst_terminator_dispose;
 //   gobject_class->finalize = gst_terminator_finalize;
@@ -136,6 +144,7 @@ gst_terminator_class_init (GstTerminatorClass * klass)
 static void
 gst_terminator_init (GstTerminator *terminator)
 {
+    terminator->timeout = TIMEOUT_DEFAULT_VALUE;
 }
 
 void
@@ -147,6 +156,10 @@ gst_terminator_set_property (GObject * object, guint property_id,
   GST_DEBUG_OBJECT (terminator, "set_property");
 
   switch (property_id) {
+    case PROP_TIMEOUT:
+      terminator->timeout = g_value_get_uint(value);
+      GST_DEBUG("timeout=%d\n", terminator->timeout);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -162,6 +175,9 @@ gst_terminator_get_property (GObject * object, guint property_id,
   GST_DEBUG_OBJECT (terminator, "get_property");
 
   switch (property_id) {
+    case PROP_TIMEOUT:
+      g_value_set_uint(value, terminator->timeout);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;

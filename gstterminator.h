@@ -36,6 +36,8 @@ typedef struct _GstTerminatorClass GstTerminatorClass;
 struct _GstTerminator
 {
   GstBaseTransform base_terminator;
+
+  guint32 timeout;
 };
 
 struct _GstTerminatorClass
